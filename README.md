@@ -36,3 +36,16 @@ qiskit.__qiskit_version__
 # Contributors (in alphabetical order)
 Gines Carrascal, Michele Grossi, Robert Loredo, Voica Radescu
 
+## How to contribute
+
+Contributions are welcomed as long as the stick to the **git-flow**: fork 
+this repo, create a local branch named 'feature-XXX'. Commit often. Split 
+it in multiple commits and request a merge to the mainline often. 
+When you contribute code, you affirm that the contribution is your original work and that you license the work to the project under the project’s open source license. Whether or not you state this explicitly, by submitting any copyrighted material via pull request, email, or other means you agree to license the material under the project’s open source license and warrant that you have the legal authority to do so.
+
+To add new contribution please remember to follow 
+[PEP 8](https://www.python.org/dev/peps/pep-0008/)
+style guide, add enough comments to let the code unrstandable to other a
+user/developer and add detailed docstring followingn the [numpy](https://numpydoc.readthedocs.io/en/latest/format.html)
+style.
+
