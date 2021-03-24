@@ -34,5 +34,5 @@ qiskit.__qiskit_version__
 
 
 # Contributors (in alphabetical order)
-Michele Grossi, Robert Loredo, Voica Radescu
+Gines Carrascal, Michele Grossi, Robert Loredo, Voica Radescu
 
