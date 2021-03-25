@@ -1,4 +1,5 @@
-# quantum-quantum-wrapper
+# Quantum Optimization Experiments
+## quantum-quantum-wrapper
 A Python wrapper for quantum algorithms for testing purposes. 
 
 **NOT for production use, merely to simplify testing/practicing with local data**
