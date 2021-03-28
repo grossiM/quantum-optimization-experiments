@@ -8,12 +8,10 @@ from qiskit.aqua.components.optimizers import COBYLA
 from qiskit.aqua.algorithms import NumPyMinimumEigensolver, VQE
 from qiskit.aqua.operators import PauliExpectation, CVaRExpectation
 from qiskit.optimization import QuadraticProgram
-from qiskit.optimization.converters import LinearEqualityToPenalty
+from qiskit.optimization.converters import QuadraticProgramToQubo
 from qiskit.optimization.algorithms import MinimumEigenOptimizer
 from qiskit import execute, Aer
 from qiskit.aqua import aqua_globals
-from qiskit.optimization.converters import InequalityToEquality
-from qiskit.optimization.converters import IntegerToBinary
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -77,33 +75,20 @@ def optimize_portfolio(dictionary):
         #print(opt_result)
     elif dictionary['solver'] == 'vqe':
         
-        conv = InequalityToEquality()
+        conv = QuadraticProgramToQubo()
         qp1 = conv.convert(qp)
         if dictionary['print']:
-            print('### InequalityToEquality:')
+            print('### quadratic_program_to_qubo:')
             print(qp1.export_as_lp_string())
+            print("Penalty:", conv.penalty)
         
-        #second coverter to be avoided
-        conv2 = IntegerToBinary()
-        qp2 = conv2.convert(qp1)
-        if dictionary['print']:
-            print('### IntegerToBinary:')
-            print(qp2.export_as_lp_string())
-    
-        #Converter: Convert the problem to an unconstrained problem, with a penalty
-        conv3 = LinearEqualityToPenalty(penalty=dictionary['penalty'])
-        qp3 = conv3.convert(qp2)
-        if dictionary['print']:
-            print('### LinearEqualityToPenalty:')
-            print(qp3.export_as_lp_string())
-
         #quantum preparation
         # set classical optimizer
     
         optimizer = dictionary["optimizer"](maxiter=int(dictionary["maxiter"]))
 
         # set variational ansatz
-        var_form = RealAmplitudes(qp.get_num_binary_vars(), reps=int(dictionary["depth"]))
+        var_form = RealAmplitudes(qp1.get_num_binary_vars(), reps=int(dictionary["depth"]))
         m = var_form.num_parameters
 
         # set backend
@@ -121,10 +106,10 @@ def optimize_portfolio(dictionary):
 
         # solve problem
         t_00 = time.perf_counter()
-        results = opt_alg.solve(qp3)
+        results = opt_alg.solve(qp1)
         t_0 = time.perf_counter() - t_00
         result['computational_time'] = t_0
-        result['result'] = results
+        result['result'] = conv.interpret(results)
 
         # print results
     if dictionary['print']:
