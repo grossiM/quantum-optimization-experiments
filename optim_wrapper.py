@@ -71,7 +71,7 @@ def optimize_portfolio(dictionary):
     qp = QuadraticProgram()
     qp.from_docplex(dictionary['docplex_mod'])
 
-    if dictionary['print']:
+    if dictionary.get('print'):
         print('### Original problem:')
         print(qp.export_as_lp_string())
     
@@ -90,7 +90,7 @@ def optimize_portfolio(dictionary):
         
         conv = QuadraticProgramToQubo()
         qp1 = conv.convert(qp)
-        if dictionary['print']:
+        if dictionary.get('print'):
             print('### quadratic_program_to_qubo:')
             print(qp1.export_as_lp_string())
             print("Penalty:", conv.penalty)
@@ -124,8 +124,8 @@ def optimize_portfolio(dictionary):
         result['computational_time'] = t_0
         result['result'] = conv.interpret(results) # convert a result of a converted problem into that of the original problem.
 
-        # print results
-    if dictionary['print']:
+    # print results
+    if dictionary.get('print'):
         print('### Results:')
         print(result)
         
