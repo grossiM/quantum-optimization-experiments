@@ -34,8 +34,8 @@ set_qiskit_aqua_logging(logging.DEBUG)  # choose INFO, DEBUG to see the log
 # Import the QuantumInstance module that will allow us to run the algorithm on a simulator and a quantum computer
 from qiskit.aqua import QuantumInstance
 
-# Grover's dictionary is used to wrap all the necessary parameters in one dictionary. 
-# The following is the dictionary we will use for Grover's Search.
+# Optimization's dictionary is used to wrap all the necessary parameters in one dictionary. 
+# The following is the dictionary we will use for Optimization.
 """
 optim_dict = {
   "docplex_mod": 'mdl',
@@ -109,7 +109,7 @@ def optimize_portfolio(dictionary):
         results = opt_alg.solve(qp1)
         t_0 = time.perf_counter() - t_00
         result['computational_time'] = t_0
-        result['result'] = conv.interpret(results)
+        result['result'] = conv.interpret(results) # convert a result of a converted problem into that of the original problem.
 
         # print results
     if dictionary['print']:
