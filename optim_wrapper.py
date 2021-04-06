@@ -16,6 +16,7 @@ from qiskit.aqua import aqua_globals
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+from datetime import datetime
 import os
 import json
 from docplex.mp.model import Model
@@ -27,10 +28,9 @@ import logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 # setup aqua logging
-from qiskit.aqua import set_qiskit_aqua_logging
-
-
-
+from qiskit.aqua import set_qiskit_aqua_logging, get_qiskit_aqua_logging
+loglevel = logging.DEBUG # choose INFO, DEBUG to see the log
+set_qiskit_aqua_logging(loglevel)  
 
 # Import the QuantumInstance module that will allow us to run the algorithm on a simulator and a quantum computer
 from qiskit.aqua import QuantumInstance
@@ -56,15 +56,13 @@ optim_dict = {
 def optimize_portfolio(dictionary):
     #dictionary["expression"]
     
-    loglevel = logging.DEBUG # choose INFO, DEBUG to see the log
-    if dictionary.get('logfile'):
+    if dictionary.get('logfile'): 
+        old_logging_level = get_qiskit_aqua_logging() # in case externally overwritten
         if not os.path.exists('logs'):
             os.makedirs('logs')
-        log_folder = f"logs/{time.strftime('%Y%m%d-%H%M%S')}"
+        log_folder = f"logs/{datetime.now().strftime('%Y%m%d-%H%M%S.%f')}"
         os.mkdir(log_folder)
         set_qiskit_aqua_logging(loglevel, f"{log_folder}/log.txt")
-    else:
-        set_qiskit_aqua_logging(loglevel)  
 
     result ={}
     # case to 
@@ -97,7 +95,6 @@ def optimize_portfolio(dictionary):
         
         #quantum preparation
         # set classical optimizer
-    
         optimizer = dictionary["optimizer"](maxiter=int(dictionary["maxiter"]))
 
         # set variational ansatz
@@ -142,5 +139,6 @@ def optimize_portfolio(dictionary):
             d['result']['optimal_value'] = list(result['result'].x)
             d['result']['status'] = str(result['result'].status)
             json.dump(d, fp)
+        set_qiskit_aqua_logging(old_logging_level) # restores previous logging state
         
     return result
