@@ -119,6 +119,7 @@ def optimize_portfolio(dictionary):
         results = opt_alg.solve(qp1)
         t_0 = time.perf_counter() - t_00
         result['computational_time'] = t_0
+        result['eval_count'] = vqe._eval_count # also vqe._eval_time exists
         result['result'] = conv.interpret(results) # convert a result of a converted problem into that of the original problem.
 
     # print results
