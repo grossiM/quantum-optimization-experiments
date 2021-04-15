@@ -16,6 +16,9 @@ from qiskit.aqua import aqua_globals
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+from datetime import datetime
+import os
+import json
 from docplex.mp.model import Model
 
 aqua_globals.random_seed = 123456
@@ -25,23 +28,22 @@ import logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 # setup aqua logging
-from qiskit.aqua import set_qiskit_aqua_logging
-set_qiskit_aqua_logging(logging.DEBUG)  # choose INFO, DEBUG to see the log
-
-
-
+from qiskit.aqua import set_qiskit_aqua_logging, get_qiskit_aqua_logging
+loglevel = logging.DEBUG # choose INFO, DEBUG to see the log
+set_qiskit_aqua_logging(loglevel)  
 
 # Import the QuantumInstance module that will allow us to run the algorithm on a simulator and a quantum computer
 from qiskit.aqua import QuantumInstance
 
-# Grover's dictionary is used to wrap all the necessary parameters in one dictionary. 
-# The following is the dictionary we will use for Grover's Search.
+# Optimization's dictionary is used to wrap all the necessary parameters in one dictionary. 
+# The following is the dictionary we will use for Optimization.
 """
 optim_dict = {
   "docplex_mod": 'mdl',
   "quantum_instance": Backend,
   "shots": 1024,
   "print":boolean,
+  "logfile":boolean,
   "solver":'method',
   "optimizer":'SPSA',
   "maxiter":'100',
@@ -53,12 +55,21 @@ optim_dict = {
 # Define our Optimisation function. This is the function that will be called by the quantum-aggregator class.
 def optimize_portfolio(dictionary):
     #dictionary["expression"]
+    
+    if dictionary.get('logfile'): 
+        old_logging_level = get_qiskit_aqua_logging() # in case externally overwritten
+        if not os.path.exists('logs'):
+            os.makedirs('logs')
+        log_folder = f"logs/{datetime.now().strftime('%Y%m%d-%H%M%S.%f')}"
+        os.mkdir(log_folder)
+        set_qiskit_aqua_logging(loglevel, f"{log_folder}/log.txt")
+
     result ={}
     # case to 
     qp = QuadraticProgram()
     qp.from_docplex(dictionary['docplex_mod'])
 
-    if dictionary['print']:
+    if dictionary.get('print'):
         print('### Original problem:')
         print(qp.export_as_lp_string())
     
@@ -77,14 +88,13 @@ def optimize_portfolio(dictionary):
         
         conv = QuadraticProgramToQubo()
         qp1 = conv.convert(qp)
-        if dictionary['print']:
+        if dictionary.get('print'):
             print('### quadratic_program_to_qubo:')
             print(qp1.export_as_lp_string())
             print("Penalty:", conv.penalty)
         
         #quantum preparation
         # set classical optimizer
-    
         optimizer = dictionary["optimizer"](maxiter=int(dictionary["maxiter"]))
 
         # set variational ansatz
@@ -109,11 +119,26 @@ def optimize_portfolio(dictionary):
         results = opt_alg.solve(qp1)
         t_0 = time.perf_counter() - t_00
         result['computational_time'] = t_0
-        result['result'] = conv.interpret(results)
+        result['result'] = conv.interpret(results) # convert a result of a converted problem into that of the original problem.
 
-        # print results
-    if dictionary['print']:
+    # print results
+    if dictionary.get('print'):
         print('### Results:')
         print(result)
+        
+    if dictionary.get('logfile'):
+        with open(f'{log_folder}/dictionary.json', 'w') as fp:
+            d = dictionary.copy()
+            d['docplex_mod'] = dictionary['docplex_mod'].export_as_lp_string()
+            d['optimizer'] = dictionary['optimizer'].__name__
+            json.dump(d, fp)
+        with open(f'{log_folder}/result.json', 'w') as fp:
+            d = result.copy()
+            d['result'] = {}
+            d['result']['optimal_function_value'] = result['result'].fval
+            d['result']['optimal_value'] = list(result['result'].x)
+            d['result']['status'] = str(result['result'].status)
+            json.dump(d, fp)
+        set_qiskit_aqua_logging(old_logging_level) # restores previous logging state
         
     return result
