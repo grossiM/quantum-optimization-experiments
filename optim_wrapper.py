@@ -86,9 +86,10 @@ def optimize_portfolio(dictionary):
         #print(opt_result)
     elif dictionary['solver'] == 'vqe':
         
-        conv = QuadraticProgramToQubo()
-        qp1 = conv.convert(qp)
+        #This is only for visualization
         if dictionary.get('print'):
+            conv = QuadraticProgramToQubo()
+            qp1 = conv.convert(qp)
             print('### quadratic_program_to_qubo:')
             print(qp1.export_as_lp_string())
             print("Penalty:", conv.penalty)
@@ -116,10 +117,10 @@ def optimize_portfolio(dictionary):
 
         # solve problem
         t_00 = time.perf_counter()
-        results = opt_alg.solve(qp1)
+        results = opt_alg.solve(qp)
         t_0 = time.perf_counter() - t_00
         result['computational_time'] = t_0
-        result['result'] = conv.interpret(results) # convert a result of a converted problem into that of the original problem.
+        result['result'] = results # convert a result of a converted problem into that of the original problem.
 
     # print results
     if dictionary.get('print'):
