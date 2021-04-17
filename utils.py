@@ -1,5 +1,6 @@
 import json, os, sys, re, math
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
@@ -69,6 +70,81 @@ def previous_month(date_):
         return date(date_.year - 1, 12, 1)
     else:
         return date_.replace(month=date_.month - 1, day=1)
+    
+# convert datetime as date
+to_YM = lambda x: date(x.year, x.month, 1)
+
+#######################################################################################
+
+## relevant functions. Used in the OptScheme
+
+#######################################################################################
+
+
+def min_div(a, m):
+    """
+    Find q = argmin_{q in N} |q*a - m|. This q is given by either ceil(m/a) or floor(m/a), depending on the rest.
+    """
+    if (a <= 0) or (m < a):
+        return None
+    tmp_d = {
+        floor(m/a): m - a * floor(m/a),
+        ceil(m/a): a * ceil(m/a) - m
+    }
+    return min(tmp_d, key=tmp_d.get)
+
+# Resample stocks array
+grouping_stocks = lambda s: np.vectorize(min_div)(s, max(s))
+
+def generate_values(stock_tickers, start_date, end_date):
+    """
+    Given a list of stocks, generates the Yahoo Finance prices DataFrame prices_df. Every price series is a stored in a column. The prices df is resampled on month for the time being, and has the latest monthly datapoint as value.
+    :param stock_tickers: list, list of stock names. 
+    :start_date: datetime.date or datetime.datetime 
+    :end_date: datetime.date or datetime.datetime
+    :return: prices, returns mean, returns covariance
+    """
+    data = YahooDataProvider(tickers=stock_tickers,
+                 start = start_date,
+                 end = end_date)
+    data.run()
+
+    prices = np.array([s.iloc[-1] for s in data._data])
+    return prices, data.get_period_return_mean_vector(), data.get_period_return_covariance_matrix()
+
+def qcmodel(prices, k, budget, mu, sigma, q):
+    """
+    Quantum model. It returns the best stocks allocation and the results dictionary. 
+    The whole model is computed inside the function.
+    :param prices: np.array, not resampled prices 
+    :param k: float, scaling factor 
+    :param budget: float, budget
+    :param mu: array, expected returns 
+    :param sigma: sigma, where sigma is the returns' covariance 
+    :param q: risk factor q
+    :return: best allocation (for non-resampled stocks), resampling array for given stocks
+    """
+    # compute Q
+    Q = sigma * q
+    
+    # resample the prices
+    grouping = grouping_stocks(prices)
+    s = grouping * prices
+    budget_bits = floor(np.log2(budget/np.min(s)))
+    
+    # build the model
+    mdl = Model('portfolio_optimization')
+    x = mdl.integer_var_list((f'x{i}' for i in range(len(s))), lb=0, ub=2**budget_bits-1)
+
+    objective = mdl.sum([mu[i]*x[i] for i in range(len(s))])
+    objective -= mdl.sum([Q[i,j]*x[i]*x[j] for i in range(len(s)) for j in range(len(s))])
+    mdl.maximize(objective)
+
+    norm = s.mean()/k
+    mdl.add_constraint(mdl.sum(x[i] * ceil(s[i]/norm) for i in range(len(s))) <= floor(budget/norm))
+    
+    return mdl, grouping 
+
 
 
 #######################################################################################
@@ -126,12 +202,12 @@ def generate_scale(prices, B, alpha, scale_range = 100, max_qbits = None, resamp
         return max(np.abs(rel_error))
          
     
-    errors_d = {i: err(grouped_prices, i) for i in range(1, scale_range+1)}
+    errors_d = {i: err(grouped_prices, i) for i in range(1, scale_range + 1)}
     
     if max_qbits is not None: 
-        qbits_d = {i: model_qbits(prices, i, B) for i in range(1, scale_range+1)}
+        qbits_d = {i: model_qbits(prices, i, B) for i in range(1, scale_range + 1)}
         scale_per_qbit = dict_inverse(qbits_d)
-        optimal_values = [j for j in errors_d if errors_d[j]<=alpha]
+        optimal_values = [j for j in errors_d if errors_d[j] <= alpha]
         if len(optimal_values) == 0: 
             warn('Attention! No value below given threshold. Returning best k for the given max qubits.')
             if max_qbits in scale_per_qbit:
