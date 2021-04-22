@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-get_ipython().run_line_magic('matplotlib', 'inline')
 # Import Grover’s algorithm and components classes
 from qiskit.circuit.library import RealAmplitudes
 from qiskit.aqua.components.optimizers import COBYLA
@@ -125,6 +124,7 @@ def optimize_portfolio(dictionary):
     # print results
     if dictionary.get('print'):
         print('### Results:')
+        result['is_qp_feasible'] = qp.is_feasible(result['result'].x)
         print(result)
         
     if dictionary.get('logfile'):

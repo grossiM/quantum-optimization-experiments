@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-get_ipython().run_line_magic('matplotlib', 'inline')
 # Import Grover’s algorithm and components classes
 from qiskit.aqua.algorithms import Grover
 from qiskit.aqua.components.oracles import LogicalExpressionOracle
