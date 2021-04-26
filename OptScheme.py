@@ -55,8 +55,11 @@ def main(options):
 
         mdl, grouping = qcmodel(prices, k_, B, mu, sigma, options.q)
         optim_dict["docplex_mod"] = mdl
-        results = aggregator('optimizer', optim_dict)
-
+        
+        for i in range(options.n_trials):
+            results = aggregator('optimizer', optim_dict)
+            if results['is_qp_feasible']:
+                break
         # Integer results (amount of groups of stocks): x
         x_val = [results['result'].variables_dict[f'x{i}'] for i in range(len(prices))]
 
@@ -130,6 +133,8 @@ if __name__ == '__main__':
                         help = 'Number of max qubits for the model')
     parser.add_argument('-ql', '--qbits_limit', type = str, default = 'true', 
                         help = 'Qubits constraint. If True, attempts to keep the size of the model to fixed qubits')
+    parser.add_argument('-t', '--n_trials', type = int, default = 1,
+                        help = 'Number of subsequent trials performed in case of INFEASIBLE result')
     parser.add_argument('-s', '--savepath', type = str, default = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}_quantum_ETF", 
                         help = 'Folder where to save the etf. Default none.')
     
