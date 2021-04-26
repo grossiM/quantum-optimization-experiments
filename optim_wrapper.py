@@ -85,10 +85,12 @@ def optimize_portfolio(dictionary):
         #print(opt_result)
     elif dictionary['solver'] == 'vqe':
         
+        # used for visualization and for the ansatz
+        # to get the number of binary variables
+        conv = QuadraticProgramToQubo()
+        qp1 = conv.convert(qp) 
         #This is only for visualization
         if dictionary.get('print'):
-            conv = QuadraticProgramToQubo()
-            qp1 = conv.convert(qp)
             print('### quadratic_program_to_qubo:')
             print(qp1.export_as_lp_string())
             print("Penalty:", conv.penalty)
@@ -120,11 +122,11 @@ def optimize_portfolio(dictionary):
         t_0 = time.perf_counter() - t_00
         result['computational_time'] = t_0
         result['result'] = results # convert a result of a converted problem into that of the original problem.
+        result['is_qp_feasible'] = qp.is_feasible(result['result'].x)
 
     # print results
     if dictionary.get('print'):
         print('### Results:')
-        result['is_qp_feasible'] = qp.is_feasible(result['result'].x)
         print(result)
         
     if dictionary.get('logfile'):
