@@ -6,7 +6,7 @@ import numpy as np
 
 
 from math import gcd, floor, ceil, log
-from datetime import date
+from datetime import date, datetime
 from functools import reduce
 from copy import copy
 from warnings import warn
@@ -23,6 +23,9 @@ from qiskit.tools.jupyter import *
 from qiskit.visualization import *
 
 from docplex.mp.model import Model
+
+from qiskit.optimization import QuadraticProgram
+from qiskit.optimization.converters import QuadraticProgramToQubo
 
 
 import grovers_search as grovers
@@ -162,16 +165,17 @@ def model_qbits(prices, k, B, resampling = True):
     :param prices: np.array, prices 
     :param k: float, scale factor 
     :param B: float, budget 
+    :param resampling: bool, if True resample the prices
     :return: total number of qubits
     """
-    if not resampling:
-        groups = vmin_div(prices, max(prices))
+    if resampling:
+        groups = grouping_stocks(prices)
         grouped_prices = groups * prices
     else:
         grouped_prices = prices 
     
-    default_qbits = len(grouped_prices) * floor(log(B/np.mean(grouped_prices), 2))
-    scaling_qbits = ceil(log(B/np.mean(grouped_prices) * k, 2))
+    default_qbits = len(grouped_prices) * floor(log(B/np.min(grouped_prices), 2))
+    scaling_qbits = ceil(log(floor(B/np.mean(grouped_prices) * k), 2))
     return default_qbits + scaling_qbits
 
 def generate_scale(prices, B, alpha, scale_range = 100, max_qbits = None, resampling = True):
@@ -183,10 +187,11 @@ def generate_scale(prices, B, alpha, scale_range = 100, max_qbits = None, resamp
     :param alpha: float, error threshold
     :param scale_range: int, range for the optimal scale. default = 100
     :param max_qbits: int, if not None puts a threshold choosing the optimal scale below the given qbits number
+    :param resampling: bool, if True resamples the prices
     """
     
-    if not resampling:
-        groups = vmin_div(prices, max(prices))
+    if resampling:
+        groups = grouping_stocks(prices)
         grouped_prices = groups * prices
     else:
         grouped_prices = prices 
@@ -242,3 +247,17 @@ def random_model(s, b):
             return random_model(s[:-1], 1) + [v]
         
         
+def print_etfs(etfs, savepath=''):
+    fig = plt.figure(figsize = (15, 10))
+    for labelname, etf in etfs.items():
+        portf_value = {to_YM(pd.to_datetime(k)): v['liquidity'] + v['portfolio_value'] for k, v in etf.items()}
+        fig = plt.plot(portf_value.keys(), portf_value.values(), label = labelname)
+    plt.title('Portfolio value comparison')
+    plt.xlabel('Time evolution', loc = 'right')
+    y = plt.ylabel('Value (EUR)', loc = 'top')
+    y.set_rotation(0)
+    plt.legend()
+    fs = os.path.join(savepath, 'comparison.png')
+    plt.savefig(fs)
+    plt.close()
+    return None   
