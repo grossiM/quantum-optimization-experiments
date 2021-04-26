@@ -1,4 +1,5 @@
 from utils import * 
+from datetime import datetime
 import argparse 
 
 def main(options): 
@@ -105,8 +106,10 @@ def main(options):
                 'results': copy(tmp_results),
                 'k': k_
                 }
-           
-        fs = os.path.join(options.savepath, 'quantum_etf_results.json')
+        
+        if not os.path.exists(options.savepath):
+            os.makedirs(options.savepath)
+        fs = os.path.join(options.savepath, f'quantum_etf_results.json')
         with open(fs, 'wt') as qf:
             json.dump(quantum_etf, qf)
 
@@ -127,7 +130,7 @@ if __name__ == '__main__':
                         help = 'Number of max qubits for the model')
     parser.add_argument('-ql', '--qbits_limit', type = str, default = 'true', 
                         help = 'Qubits constraint. If True, attempts to keep the size of the model to fixed qubits')
-    parser.add_argument('-s', '--savepath', type = str, default = '', 
+    parser.add_argument('-s', '--savepath', type = str, default = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}_quantum_ETF", 
                         help = 'Folder where to save the etf. Default none.')
     
     options = parser.parse_args()
