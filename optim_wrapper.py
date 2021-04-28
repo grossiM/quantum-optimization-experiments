@@ -122,7 +122,8 @@ def optimize_portfolio(dictionary):
         t_0 = time.perf_counter() - t_00
         result['computational_time'] = t_0
         result['result'] = results # convert a result of a converted problem into that of the original problem.
-        result['is_qp_feasible'] = qp.is_feasible(result['result'].x)
+    
+    result['is_qp_feasible'] = qp.is_feasible(result['result'].x)
 
     # print results
     if dictionary.get('print'):
