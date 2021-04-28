@@ -4,6 +4,9 @@ import argparse
 
 def main(options): 
     
+    if options.initial_point.lower()=='true' and options.qbits_limit.lower()!='true':
+        raise Exception("Can't use initial_point if the number of required qubits varies from one optimization step to the following. Set also qbits_limit to true.")
+    
     # fixed values
     stock_tickers = ['FXD', 'FXR', 'FXL', 'FTXR', 'QTEC']
     start_date = date(2017, 1, 1)
@@ -41,8 +44,12 @@ def main(options):
         else: 
             previous_month_etf = copy(quantum_etf[previous_month(date_).strftime('%Y-%m-%d')])
             B = previous_month_etf['liquidity'] + np.sum(np.array(previous_month_etf['allocation']) * prices)
+            
+            if options.initial_point.lower() == 'true':
+                print("Using best paramenters of previous optimization as an initial point")
+                optim_dict['initial_point'] = last_optimal_params
 
-        if options.qbits_limit == 'true':
+        if options.qbits_limit.lower() == 'true':
             qbits_dict = {k0: max(l0) for k0, l0 in dict_inverse({j: model_qbits(prices, j, B) for j in range(1, 100)}).items()}
             if options.max_qbits in qbits_dict: 
                 k_ = qbits_dict[options.max_qbits]
@@ -60,12 +67,16 @@ def main(options):
             results = aggregator('optimizer', optim_dict)
             if results['is_qp_feasible']:
                 break
+        
         # Integer results (amount of groups of stocks): x
         x_val = [results['result'].variables_dict[f'x{i}'] for i in range(len(prices))]
 
         # Amount of individual stock
         best_allocation = grouping*np.array(x_val)
         budget_spent = np.sum(best_allocation * prices)
+        
+        # Saves optimal parameters as initial point for next iteration
+        last_optimal_params = results['solver_info']['optimal_params'] 
 
         #printing tmp_results
         tmp_results = {
@@ -133,6 +144,8 @@ if __name__ == '__main__':
                         help = 'Number of max qubits for the model')
     parser.add_argument('-ql', '--qbits_limit', type = str, default = 'true', 
                         help = 'Qubits constraint. If True, attempts to keep the size of the model to fixed qubits')
+    parser.add_argument('-p', '--initial_point', type = str, default = 'false',
+                        help = 'If True, it uses the optimal parameters of previous optimization as a starting point for the following')
     parser.add_argument('-t', '--n_trials', type = int, default = 1,
                         help = 'Number of subsequent trials performed in case of INFEASIBLE result')
     parser.add_argument('-s', '--savepath', type = str, default = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}_quantum_ETF", 
