@@ -22,6 +22,8 @@ def main(options):
           "depth": 1,
           "alpha": 0.35
         }
+    # etf collector 
+    etfs = {}
     
     # building the quantum etf
     quantum_etf = {}
@@ -43,18 +45,22 @@ def main(options):
             B = previous_month_etf['liquidity'] + np.sum(np.array(previous_month_etf['allocation']) * prices)
 
         if options.qbits_limit == 'true':
-            qbits_dict = {k0: max(l0) for k0, l0 in dict_inverse({j: model_qbits(prices, j, B) for j in range(1, 100)}).items()}
+            qbits_dict = {k0: max(l0) for k0, l0 in dict_inverse({j: model_qbits(prices, j, B) for j in range(1, options.max_k)}).items()}
             if options.max_qbits in qbits_dict: 
                 k_ = qbits_dict[options.max_qbits]
+            elif options.max_qbits > max(qbits_dict): 
+                k_ = copy(options.max_k)
+                warn("Number of qbits provided exceeds qbits dictionary. Initialising k as the maximum given.")
             else: 
-                warn(f'Number of qbits given not found among possible models.\nThe minimum number of qbits is f{min(qbits_dict.keys())}.\nChoosing default k')
-                k_ = options.k
+                warn('Number of qbits given not found among possible models.Choosing k equal to given value')
+                k_ = copy(options.k)
         else:
-            k_ = options.k
+            k_ = copy(options.k)
 
 
         mdl, grouping = qcmodel(prices, k_, B, mu, sigma, options.q)
         optim_dict["docplex_mod"] = mdl
+        optim_dict["penalty"] = options.penalty
         
         for i in range(options.n_trials):
             results = aggregator('optimizer', optim_dict)
@@ -88,7 +94,8 @@ def main(options):
                     'liquidity': B,
                     'portfolio_value': 0.,
                     'results': tmp_results,
-                    'k': k_
+                    'k': k_,
+                    'penalty': options.penalty
                 }
             else: # at step k (any k), etf keeps previous allocation and updates its values with current prices
                 quantum_etf[date_.strftime('%Y-%m-%d')] = {
@@ -97,7 +104,8 @@ def main(options):
                     'liquidity': previous_month_etf['liquidity'],
                     'portfolio_value': float(np.sum(np.array(previous_month_etf['allocation']) * prices)),
                     'results': tmp_results,
-                    'k': k_
+                    'k': k_,
+                    'penalty': options.penalty
                 }
         else: # if budget spent < B
             tmp_results['wrong_results'] = None
@@ -107,7 +115,8 @@ def main(options):
                 'liquidity': float(B - budget_spent),
                 'portfolio_value': float(budget_spent),
                 'results': copy(tmp_results),
-                'k': k_
+                'k': k_,
+                'penalty': options.penalty
                 }
         
         if not os.path.exists(options.savepath):
@@ -118,6 +127,117 @@ def main(options):
 
         # next datapoint
         date_ = next_month(date_)
+        
+    # building the optimum and real etf
+    # steps separated for clarity only
+    opt_etf = {}; real_etf = {}
+    date_ = copy(computation_date)
+
+    while date_ < end_date: 
+        # generate main values for the model
+        prices_, mu_, sigma_ = generate_values(stock_tickers = stock_tickers + ['IFV'], start_date = start_date, 
+                                        end_date = date_)
+        # values for quantum etf
+        prices = prices_[:-1]; mu = mu_[:-1]; sigma = sigma_[:-1, :-1]
+
+        # price of real etf 
+        ifv_price = prices_[-1]
+
+        # find budget, best allocation, results
+        if len(opt_etf) == 0: 
+            B = copy(options.budget) 
+
+            # real values
+            no_real_bought_stocks = floor(B/ifv_price)
+            real_liquidity = B - no_real_bought_stocks * ifv_price
+
+        else: 
+
+            previous_month_etf = copy(opt_etf[previous_month(date_).strftime('%Y-%m-%d')])
+            B = previous_month_etf['liquidity'] + np.sum(np.array(previous_month_etf['allocation']) * prices)
+
+        if options.qbits_limit == 'true':
+            qbits_dict = {k0: max(l0) for k0, l0 in dict_inverse({j: model_qbits(prices, j, B) for j in range(1, options.max_k)}).items()}
+            if options.max_qbits in qbits_dict: 
+                k_ = qbits_dict[options.max_qbits]
+            elif options.max_qbits > max(qbits_dict): 
+                k_ = copy(options.max_k)
+                warn("Number of qbits provided exceeds qbits dictionary. Initialising k as the maximum given.")
+            else: 
+                warn('Number of qbits given not found among possible models.Choosing k equal to given value')
+                k_ = copy(options.k)
+        else:
+            k_ = copy(options.k)
+
+        mdl, grouping = qcmodel(prices, k_, B, mu, sigma, options.q)
+
+        # solver
+        mdl.solve()
+        sols_dict = dict(zip([f'x{i}' for i in range(len(prices))], [0] * len(prices)))
+        for j, v in mdl.solution.as_name_dict().items(): 
+            sols_dict[j] = int(v)
+
+        x_val = list(sols_dict.values())
+
+        # Amount of individual stock
+        best_allocation = grouping*np.array(x_val)
+        budget_spent = np.sum(best_allocation * prices)
+
+        # generate etf datapoint
+        if budget_spent > B: # if budget spent is bigger than current liquidity 
+            if len(opt_etf) == 0: # at step 0, etf does not spend any budget
+                opt_etf[date_.strftime('%Y-%m-%d')] = {
+                    'allocation': [0] * len(prices),
+                    'prices': [float(p) for p in prices],
+                    'liquidity': B,
+                    'portfolio_value': 0.,
+                    'objective_value': mdl.solution.get_objective_value()
+                }
+            else: # at step k (any k), etf keeps previous allocation and updates its values with current prices
+                opt_etf[date_.strftime('%Y-%m-%d')] = {
+                    'allocation': previous_month_etf['allocation'],
+                    'prices': [float(p) for p in prices],
+                    'liquidity': previous_month_etf['liquidity'],
+                    'portfolio_value': float(np.sum(np.array(previous_month_etf['allocation']) * prices)),
+                    'objective_value': mdl.solution.get_objective_value()
+                }
+        else: # if budget spent < B
+            opt_etf[date_.strftime('%Y-%m-%d')] = {
+                'allocation': [int(i) for i in best_allocation],
+                'prices': [float(p) for p in prices],
+                'liquidity': float(B - budget_spent),
+                'portfolio_value': float(budget_spent),
+                'objective_value': mdl.solution.get_objective_value()
+                }
+
+        # real etf 
+        real_etf[date_.strftime('%Y-%m-%d')] = {
+            'liquidity': real_liquidity, 
+            'prices': float(ifv_price),
+            'portfolio_value': no_real_bought_stocks * ifv_price
+        }
+
+
+        # etf is saved at every step
+        fs_real = os.path.join(options.savepath, f'real_etf_results.json')
+        with open(fs_real, 'wt') as rf:
+             json.dump(real_etf, rf)
+         
+        fs_opt = os.path.join(options.savepath, f'opt_etf_results.json')
+        with open(fs_opt, 'wt') as rf:
+             json.dump(opt_etf, rf)
+
+        # next datapoint
+        date_ = next_month(date_)
+
+        # clearing notebook output
+        clear_output()  
+    
+    etfs['quantum'] = copy(quantum_etf)
+    etfs['optimum'] = copy(opt_etf)
+    etfs['IFV'] = copy(real_etf) 
+    
+    print_etfs(etfs, savepath=options.savepath)
             
     return None
     
@@ -131,12 +251,17 @@ if __name__ == '__main__':
                         help = 'Resampling factor')
     parser.add_argument('-mq', '--max_qbits', type = int, default = 27, 
                         help = 'Number of max qubits for the model')
+    parser.add_argument('-mk', '--max_k', type = int, default = 100, 
+                        help = 'Number of max k for the model.')
     parser.add_argument('-ql', '--qbits_limit', type = str, default = 'true', 
                         help = 'Qubits constraint. If True, attempts to keep the size of the model to fixed qubits')
     parser.add_argument('-t', '--n_trials', type = int, default = 1,
                         help = 'Number of subsequent trials performed in case of INFEASIBLE result')
     parser.add_argument('-s', '--savepath', type = str, default = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}_quantum_ETF", 
-                        help = 'Folder where to save the etf. Default none.')
+                        help = 'Folder where to save the etf. It is created as default')
+    parser.add_argument('-p', '--penalty', type = float, default = None, 
+                        help = 'Penalty for the QUBO conversion. Default: autocomputed.')
+    
     
     options = parser.parse_args()
     
