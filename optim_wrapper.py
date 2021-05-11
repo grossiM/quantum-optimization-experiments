@@ -87,7 +87,7 @@ def optimize_portfolio(dictionary):
         
         # used for visualization and for the ansatz
         # to get the number of binary variables
-        conv = QuadraticProgramToQubo(dictionary['penalty'])
+        conv = QuadraticProgramToQubo()
         qp1 = conv.convert(qp) 
         #This is only for visualization
         if dictionary.get('print'):

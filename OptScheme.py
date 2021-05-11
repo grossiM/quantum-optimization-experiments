@@ -60,7 +60,6 @@ def main(options):
 
         mdl, grouping = qcmodel(prices, k_, B, mu, sigma, options.q)
         optim_dict["docplex_mod"] = mdl
-        optim_dict["penalty"] = options.penalty
         
         for i in range(options.n_trials):
             results = aggregator('optimizer', optim_dict)
@@ -94,8 +93,7 @@ def main(options):
                     'liquidity': B,
                     'portfolio_value': 0.,
                     'results': tmp_results,
-                    'k': k_,
-                    'penalty': options.penalty
+                    'k': k_
                 }
             else: # at step k (any k), etf keeps previous allocation and updates its values with current prices
                 quantum_etf[date_.strftime('%Y-%m-%d')] = {
@@ -104,8 +102,7 @@ def main(options):
                     'liquidity': previous_month_etf['liquidity'],
                     'portfolio_value': float(np.sum(np.array(previous_month_etf['allocation']) * prices)),
                     'results': tmp_results,
-                    'k': k_,
-                    'penalty': options.penalty
+                    'k': k_
                 }
         else: # if budget spent < B
             tmp_results['wrong_results'] = None
@@ -115,8 +112,7 @@ def main(options):
                 'liquidity': float(B - budget_spent),
                 'portfolio_value': float(budget_spent),
                 'results': copy(tmp_results),
-                'k': k_,
-                'penalty': options.penalty
+                'k': k_
                 }
         
         if not os.path.exists(options.savepath):
@@ -259,9 +255,6 @@ if __name__ == '__main__':
                         help = 'Number of subsequent trials performed in case of INFEASIBLE result')
     parser.add_argument('-s', '--savepath', type = str, default = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}_quantum_ETF", 
                         help = 'Folder where to save the etf. It is created as default')
-    parser.add_argument('-p', '--penalty', type = float, default = None, 
-                        help = 'Penalty for the QUBO conversion. Default: autocomputed.')
-    
     
     options = parser.parse_args()
     
