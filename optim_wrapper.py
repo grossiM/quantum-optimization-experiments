@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-get_ipython().run_line_magic('matplotlib', 'inline')
 # Import Grover’s algorithm and components classes
 from qiskit.circuit.library import RealAmplitudes
 from qiskit.aqua.components.optimizers import COBYLA
@@ -49,6 +48,7 @@ optim_dict = {
   "maxiter":'100',
   "depth":'1',
   "alpha":0.35,
+  "initial_point":list
 }
 """
 
@@ -86,8 +86,11 @@ def optimize_portfolio(dictionary):
         #print(opt_result)
     elif dictionary['solver'] == 'vqe':
         
+        # used for visualization and for the ansatz
+        # to get the number of binary variables
         conv = QuadraticProgramToQubo()
         qp1 = conv.convert(qp)
+        #This is only for visualization
         if dictionary.get('print'):
             print('### quadratic_program_to_qubo:')
             print(qp1.export_as_lp_string())
@@ -108,19 +111,26 @@ def optimize_portfolio(dictionary):
         cvar_exp = CVaRExpectation(float(dictionary["alpha"]), PauliExpectation())
         cvar_exp.compute_variance = lambda x: [0]  # to be fixed in PR #1373
 
+        # use an initial point for vqe parameters, if given
+        initial_point = dictionary.get('initial_point')
+
         # initialize VQE using CVaR
-        vqe = VQE(expectation=cvar_exp, optimizer=optimizer, var_form=var_form, quantum_instance=backend)
+        vqe = VQE(expectation=cvar_exp, optimizer=optimizer, var_form=var_form,
+                  quantum_instance=backend, initial_point= initial_point)
 
         # initialize optimization algorithm based on CVaR-VQE
         opt_alg = MinimumEigenOptimizer(vqe)
 
         # solve problem
         t_00 = time.perf_counter()
-        results = opt_alg.solve(qp1)
+        results = opt_alg.solve(qp)
         t_0 = time.perf_counter() - t_00
         result['computational_time'] = t_0
         result['eval_count'] = vqe._eval_count # also vqe._eval_time exists
-        result['result'] = conv.interpret(results) # convert a result of a converted problem into that of the original problem.
+        result['result'] = results
+        result['solver_info'] = {'optimal_params' : list(vqe.optimal_params)} # list is json serializable
+
+    result['is_qp_feasible'] = qp.is_feasible(result['result'].x)
 
     # print results
     if dictionary.get('print'):
