@@ -130,5 +130,8 @@ dmypy.json
 .pyre/
 .vscode/settings.json
 
+# PyCharm
+.idea
+
 # Mac OS
 .DS_Store
