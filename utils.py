@@ -260,3 +260,30 @@ def random_model(s, b):
             v = 0
             return random_model(s[:-1], 1) + [v]
 
+#######################################################################################
+
+## relevant functions. Used in the benckmarking
+
+#######################################################################################
+
+
+def dates_gen(start, end, delta):
+    """
+    Given a start date, an end date, and a time delta, it returns a generator of dates
+    """
+    curr = start
+    while curr < end:
+        yield curr
+        curr += delta
+
+
+def is_market_data_complete(market_data):
+    """
+    Returns a boolean stating whether the market data is complete (no missing data for any date) or not
+    """
+    if isinstance(market_data, list):
+        masks = [pd.notna(md) for md in market_data]
+        return pd.concat(masks, axis='columns').all(axis=None)
+    else:
+        return pd.notna(market_data).all()
+
