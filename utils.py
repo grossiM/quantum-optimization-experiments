@@ -1,32 +1,18 @@
-import json, os, sys, re, math
+import os
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
 
-from math import gcd, floor, ceil, log
-from datetime import date, datetime
-from functools import reduce
-from copy import copy
+from math import floor, ceil, log
+from datetime import date
 from warnings import warn
 
-from qiskit.finance import QiskitFinanceError
 from qiskit.finance.data_providers import YahooDataProvider
-
-from qiskit import QuantumCircuit, execute, Aer, IBMQ
-from qiskit.aqua.components.optimizers import SLSQP, COBYLA
-from IPython.display import clear_output
-
-from qiskit.compiler import transpile, assemble
 from qiskit.tools.jupyter import *
 from qiskit.visualization import *
-
-
 from docplex.mp.model import Model
-
-from qiskit.optimization import QuadraticProgram
-from qiskit.optimization.converters import QuadraticProgramToQubo
 
 import grovers_search as grovers
 import optim_wrapper as optimization
