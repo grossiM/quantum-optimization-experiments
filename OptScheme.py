@@ -34,6 +34,7 @@ def main(options):
           "optimizer": SLSQP,
           "maxiter": 1000,
           "depth": 1,
+          "entanglement": 'full',
           "alpha": 0.35
         }
     # etf collector

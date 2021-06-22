@@ -47,6 +47,7 @@ optim_dict = {
   "optimizer":'SPSA',
   "maxiter":'100',
   "depth":'1',
+  "entanglement":'full/circular/linear/sca',
   "alpha":0.35,
   "initial_point":list
 }
@@ -101,8 +102,8 @@ def optimize_portfolio(dictionary):
         optimizer = dictionary["optimizer"](maxiter=int(dictionary["maxiter"]))
 
         # set variational ansatz
-        var_form = RealAmplitudes(qp1.get_num_binary_vars(), reps=int(dictionary["depth"]))
-        m = var_form.num_parameters
+        var_form = RealAmplitudes(qp1.get_num_binary_vars(), reps=int(dictionary["depth"]),
+                                  entanglement=dictionary.get("entanglement", "full"))
 
         # set backend
         backend = Aer.get_backend(dictionary["quantum_instance"])
